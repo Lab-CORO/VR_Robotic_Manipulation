@@ -6693,7 +6693,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aaefc21dbcc3f0b4c8961db431519631, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /desired/topic
+  topicName: /unity/gripper/pos
   desiredPose: 0
 --- !u!1 &411888068
 GameObject:
@@ -11888,8 +11888,8 @@ MonoBehaviour:
   speedCoefficient: 1
   endEffector: {fileID: 1583494747}
   target: {fileID: 986516485159089589}
-  heightReference: {fileID: 1378502024}
-  minimalHeight: 20
+  heightReference: {fileID: 1583494747}
+  minimalHeight: 0.8
 --- !u!1 &773042728
 GameObject:
   m_ObjectHideFlags: 0
