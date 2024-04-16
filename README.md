@@ -25,6 +25,7 @@ This project incorporates multiple different Git repositories due to its develop
 
 * **Unity-ROS Bridge**: This can be found at the [Unity Robotics Hub](https://github.com/Unity-Technologies/Unity-Robotics-Hub) and is used to connect Unity to ROS. For tutorials and guidance on setting up ROS in Unity, including the ROS-TCP-Endpoint, follow their [ROS_setup tutorial](https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/pick_and_place/0_ros_setup.md). ROS Noetic was used for this project. **REQUIRED FOR ALL ROBOTS.**
 * **Robotiq 2F 85 Gripper**: An updated fork compatible with ROS Noetic is available [here](https://github.com/alexandre-bernier/robotiq_85_gripper).
+* **Realsense ROS**: Driver for Realsense camera can be found [here](https://github.com/rjwb1/realsense-ros).
 
 Scripts are organized by robot type. Simply add the folder to your workspace for Python scripts. For the Flexiv robot, which uses C++, include the standard CMakeLists.txt required for C++ in ROS.
 
@@ -74,6 +75,14 @@ The Unity project is designed to work with any robot to produce a digital twin t
 4. **Prepare the End Effector**: On the end effector of your robot, create a duplicate and make it grabbable by VR by adding an XRGrabInteractable component. Set its Layer to Robot Interactor to allow grabbing without interference.
 5. **Reference Object Setup**: Return to the GameObject with the ROSPubRTTwist scripts. Update the Objects References for the end effector and its duplicate. Place the duplicate in the Target slot as it will be the one that moves.
 6. **Limit Movement**: The Reference to limit movement variables is used to restrict movement in the Z-axis of the robot. Set the Height reference to the end effector, and the Minimal Height to the lowest point you want the robot to move in Z. This is useful to prevent collisions, such as with a table, and may require calibration to align with Unity coordinates.
+7. **ROS launch**: Launch the different scripts from ROS to control the robot in different tab. It include the following:
+```python
+roslaunch dsr_ros_control doosan_interface_moveit.launch # Launch the ROS driver for the real-time control of the doosan.
+roslauch moveit_servo spacenav_cpp.launch # Requires to change the configuration file to match your robot. Check https://ros-planning.github.io/moveit_tutorials/doc/realtime_servo/realtime_servo_tutorial.html for more information.
+roslaunch unity_ros_doosan vr_realtime.launch # Launch the camera, the gripper and the other conversion scripts. Might require to do "sudo chmod 777 /dev/ttyUSB0" for the robotic gripper
+roslaunch ros_tcp_endpoint endpoint.launch
+rosrun rqt_controller_manager rqt_controller_manager # To change the controller of the Doosan to a velocity control.
+```
 
 # Contributing
 
