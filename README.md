@@ -3,6 +3,13 @@
 This project facilitates the remote control of collaborative robots using virtual reality by creating a digital twin of the real robot within Unity, connected through ROS. The Unity scripts included are largely robot-agnostic, allowing this project to serve as a foundation for future developments. Additionally, the project integrates scripts that connect to ROS for video and point cloud streaming, and features an animated twin of the Robotiq 2F 85 gripper. This project is shared publicly to accelerate the development of digital twins for new robots within Unity for VR projects. The ROS scripts, which are robot-dependent, were created to enable real-time manipulation of the robots based on VR input from the Unity project.
 
 # Installation Instruction
+
+## Prerequisites
+
+- **Operating System**: This project was developed using Unity 2021.3.28f1 on Windows 11 and ROS Noetic on Ubuntu 20.04.
+- **Hardware**: Two separate computers are recommended; one for VR and another for robot control.
+
+
 ## Unity Part
 
 To install the Unity project, import the VR_Zorg_Etude folder and open it with Unity Hub.
@@ -20,3 +27,54 @@ This project incorporates multiple different Git repositories due to its develop
 * **Robotiq 2F 85 Gripper**: An updated fork compatible with ROS Noetic is available [here](https://github.com/alexandre-bernier/robotiq_85_gripper).
 
 Scripts are organized by robot type. Simply add the folder to your workspace for Python scripts. For the Flexiv robot, which uses C++, include the standard CMakeLists.txt required for C++ in ROS.
+
+# Usage
+
+This project was specifically created for an experiment featured in an article. Consequently, all the text, instructions, and menus are in French. However, all the code is written and commented in English.
+
+## Scenes
+
+Three scenes are available within the Unity project:
+* **VR Tutorial Room**: Designed to introduce VR to new users. This scene explains different controller inputs and how to navigate within a scene.
+* **Test Scene**: Created specifically to test functionalities. It can be removed or retained for the same purpose.
+* **Doosan Control Room**: Features a Doosan M1013 robot that can be manipulated using VR. This scene includes a UI that manages VR inputs, robot control, and camera control. It is already set up for VR control.
+
+## Scripts
+
+Scripts are organized into folders based on their functionality:
+
+* **Actions**: Scripts that perform actions on GameObjects within the scene.
+* **Physics**: Scripts that either simulate physical behaviors or require physics (e.g., spring effects) to function.
+* **Robots**: Scripts that affect how imported robots behave. These are primarily used to generate the digital twin and perform robot-specific actions.
+* **ROS**: Scripts that interact with ROS. RosPub scripts are publishers, and RosSub scripts are subscribers.
+* **Test Scripts**: Temporary scripts for testing purposes. These can be removed if unnecessary.
+* **Tutorial**: Scripts used exclusively in the Tutorial scene.
+* **UI**: Scripts that specifically interact with UI GameObjects or components.
+* **XR**: Scripts used to modify or control VR-specific interactions, such as adding actions for certain VR inputs.
+
+## Overall usage
+The Unity project is designed to work with any robot to produce a digital twin that will sync with a joint state and replicate its movements in the robot.
+
+### Setting Up Your Robot in Unity
+1. **Add the URDF Folder**: Place your robot's URDF folder within the project's URDF folder to maintain structure. You can choose another location if desired.
+2. **Import Your Robot**: Use the URDF importer to add your new robot to the project.
+3. **Configure Articulation Body**: In the first ArticulationBody (usually base_link), set it to immovable to prevent the robot from falling due to Unity's gravity.
+4. **Adjust Physical Parameters**: On the first GameObject in the hierarchy or the one containing the Controller component, set the stiffness, damping, and force limit parameters to prevent the robot from collapsing. Typical values used are 10000 for stiffness, 100 for damping, and 10000 for force limit, although adjustments may be necessary based on the robot model.
+5. **Add JointsController Script**: Attach this script to the same GameObject and populate the Joints List variable with all the links of your robot, in the order they appear in your robot's joint state message.
+6. **Setup ROS Subscriptions**: On the same GameObject or a new empty one, add the RosSubJointState script. Adjust the Topic Name to match the corresponding ROS topic and link the GameObject containing the JointsController in the Joints variable.
+7. **Configure ROS Settings**: Navigate to Robotics -> ROS Settings in Unity and ensure the ROS IP Address matches your ROS Master and that you are on the same network.
+8. **Launch ROS-TCP-Endpoint**: Start your robot's driver and launch the ROS-TCP-endpoint:
+  `roslaunch ros_tcp_endpoint endpoint.launch`
+9. **Start Unity Play Mode**: After a few seconds, Unity should connect to ROS, and the digital twin should align with the actual robot's position.
+
+### Real-Time Manipulation (Example with Doosan)
+1. **Setup ROS Publishing**: In a new GameObject, add the ROSPubRTTwist scripts.
+2. **Configure Topic Name**: Modify the Topic name to the required one. This script sends Twists.msg to ROS.
+3. **Adjust Speed Control**: Set the speed coefficient to your desired value for proportional control of the speed.
+4. **Prepare the End Effector**: On the end effector of your robot, create a duplicate and make it grabbable by VR by adding an XRGrabInteractable component. Set its Layer to Robot Interactor to allow grabbing without interference.
+5. **Reference Object Setup**: Return to the GameObject with the ROSPubRTTwist scripts. Update the Objects References for the end effector and its duplicate. Place the duplicate in the Target slot as it will be the one that moves.
+6. **Limit Movement**: The Reference to limit movement variables is used to restrict movement in the Z-axis of the robot. Set the Height reference to the end effector, and the Minimal Height to the lowest point you want the robot to move in Z. This is useful to prevent collisions, such as with a table, and may require calibration to align with Unity coordinates.
+
+# Contributing
+
+We welcome contributions to our project. If you have suggestions or improvements, please fork the repository and submit a pull request. For substantial changes, please open an issue first to discuss what you would like to change. Please ensure to update tests as appropriate.
