@@ -89,12 +89,12 @@ To enable real-time manipulation with the Doosan robot, follow these steps to se
    - Set the `Height reference` to the end effector, and the `Minimal Height` to the lowest point you want the robot to move in Z. This helps prevent collisions.
 
 6. **ROS Launch Commands**: 
-   - Launch the various ROS components needed for real-time manipulation using the following commands:
+   - Launch the various ROS components needed for real-time manipulation using the following commands in multiple command window:
    ```bash
    roslaunch dsr_ros_control doosan_interface_moveit.launch # Launch the ROS driver for real-time control.
    roslauch moveit_servo spacenav_cpp.launch # Adjust config to match your robot. See MoveIt tutorials for setup.
    roslaunch unity_ros_doosan vr_realtime.launch # Launches camera, gripper, and conversion scripts. Permissions for the gripper may need adjustment (`sudo chmod 777 /dev/ttyUSB0`).
-   roslaunch ros_tcp_endpoint endpoint.launch
+   roslaunch ros_tcp_endpoint endpoint.launch # LAunch the Unity-ROS bridge
    rosrun rqt_controller_manager rqt_controller_manager # Switch Doosan controller to velocity control.
 
 
