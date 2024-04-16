@@ -69,20 +69,34 @@ The Unity project is designed to work with any robot to produce a digital twin t
 9. **Start Unity Play Mode**: After a few seconds, Unity should connect to ROS, and the digital twin should align with the actual robot's position.
 
 ### Real-Time Manipulation (Example with Doosan)
-1. **Setup ROS Publishing**: In a new GameObject, add the ROSPubRTTwist scripts.
-2. **Configure Topic Name**: Modify the Topic name to the required one. This script sends Twists.msg to ROS.
-3. **Adjust Speed Control**: Set the speed coefficient to your desired value for proportional control of the speed.
-4. **Prepare the End Effector**: On the end effector of your robot, create a duplicate and make it grabbable by VR by adding an XRGrabInteractable component. Set its Layer to Robot Interactor to allow grabbing without interference.
-5. **Reference Object Setup**: Return to the GameObject with the ROSPubRTTwist scripts. Update the Objects References for the end effector and its duplicate. Place the duplicate in the Target slot as it will be the one that moves.
-6. **Limit Movement**: The Reference to limit movement variables is used to restrict movement in the Z-axis of the robot. Set the Height reference to the end effector, and the Minimal Height to the lowest point you want the robot to move in Z. This is useful to prevent collisions, such as with a table, and may require calibration to align with Unity coordinates.
-7. **ROS launch**: Launch the different scripts from ROS to control the robot in different tab. It include the following:
-```python
-roslaunch dsr_ros_control doosan_interface_moveit.launch # Launch the ROS driver for the real-time control of the doosan.
-roslauch moveit_servo spacenav_cpp.launch # Requires to change the configuration file to match your robot. Check https://ros-planning.github.io/moveit_tutorials/doc/realtime_servo/realtime_servo_tutorial.html for more information.
-roslaunch unity_ros_doosan vr_realtime.launch # Launch the camera, the gripper and the other conversion scripts. Might require to do "sudo chmod 777 /dev/ttyUSB0" for the robotic gripper
-roslaunch ros_tcp_endpoint endpoint.launch
-rosrun rqt_controller_manager rqt_controller_manager # To change the controller of the Doosan to a velocity control.
-```
+
+To enable real-time manipulation with the Doosan robot, follow these steps to set up and launch the necessary ROS nodes and scripts:
+
+1. **Setup ROS Publishing**: 
+   - In a new GameObject, add the `ROSPubRTTwist` scripts.
+   - Configure the Topic name to the required one. This script sends `Twist.msg` to ROS.
+
+2. **Adjust Speed Control**: 
+   - Set the speed coefficient to your desired value for proportional control of the speed.
+
+3. **Prepare the End Effector**: 
+   - On the end effector of your robot, create a duplicate and make it grabbable by VR by adding an `XRGrabInteractable` component. Set its Layer to `Robot Interactor` to allow grabbing without interference.
+
+4. **Reference Object Setup**: 
+   - Update the Objects References for the end effector and its duplicate in the GameObject with the `ROSPubRTTwist` scripts. Place the duplicate in the `Target` slot as it will be the one that moves.
+
+5. **Limit Movement**: 
+   - Set the `Height reference` to the end effector, and the `Minimal Height` to the lowest point you want the robot to move in Z. This helps prevent collisions.
+
+6. **ROS Launch Commands**: 
+   - Launch the various ROS components needed for real-time manipulation using the following commands:
+   ```bash
+   roslaunch dsr_ros_control doosan_interface_moveit.launch # Launch the ROS driver for real-time control.
+   roslauch moveit_servo spacenav_cpp.launch # Adjust config to match your robot. See MoveIt tutorials for setup.
+   roslaunch unity_ros_doosan vr_realtime.launch # Launches camera, gripper, and conversion scripts. Permissions for the gripper may need adjustment (`sudo chmod 777 /dev/ttyUSB0`).
+   roslaunch ros_tcp_endpoint endpoint.launch
+   rosrun rqt_controller_manager rqt_controller_manager # Switch Doosan controller to velocity control.
+
 
 # Contributing
 
