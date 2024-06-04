@@ -17,13 +17,18 @@ To install the Unity project, import the VR_Zorg_Etude folder and open it with U
 ## ROS Part
 This project incorporates multiple different Git repositories due to its development involving several robots. Installation of the ROS components varies depending on the robot used, as each robot has its unique requirements and ROS workspace setups. The scripts in the Robot_scripts folder need to be imported into the workspace of your robot.
 
-* **Doosan Robot**: For real-time manipulation, build from a specific branch on their GitHub. This branch is tailored for real-time manipulation and can be found [here](https://github.com/BryanStuurman/doosan-robot/tree/ros_control_compat). For detailed setup instructions, refer to this [issue](https://github.com/doosan-robotics/doosan-robot/issues/99) which also explains the procedure.
+* **Doosan Robot**: For real-time manipulation, build from a specific branch on their GitHub. This branch is tailored for real-time manipulation and can be found [here](https://github.com/ETS-J-Boutin/doosan-robot_RT). For detailed setup instructions, refer to this [issue](https://github.com/doosan-robotics/doosan-robot/issues/99) which also explains the procedure.
 * **Kinova Robot**: Access the repository [here](https://github.com/Kinovarobotics/ros_kortex). Installation procedures are provided on the main page of the repository.
 * **Flexiv Robot**: The real-time control API for Flexiv requires C++, whereas the other robot used Python. Follow the C++ RDK installation instructions [here](https://github.com/flexivrobotics/flexiv_rdk).
 
 ## Additional ROS Packages:
 
 * **Unity-ROS Bridge**: This can be found at the [Unity Robotics Hub](https://github.com/Unity-Technologies/Unity-Robotics-Hub) and is used to connect Unity to ROS. For tutorials and guidance on setting up ROS in Unity, including the ROS-TCP-Endpoint, follow their [ROS_setup tutorial](https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/pick_and_place/0_ros_setup.md). ROS Noetic was used for this project. **REQUIRED FOR ALL ROBOTS.**
+  Note for the Ros-Tcp-Endpoint, you will need to change the first line of code of the file ROS-TCP-Endpoint/src/ros_tcp_endpoint/default_server_endpoint.py to work in Python 3 to
+  ```bash
+  #!/usr/bin/env python 3
+  ```
+
 * **Robotiq 2F 85 Gripper**: An updated fork compatible with ROS Noetic is available [here](https://github.com/alexandre-bernier/robotiq_85_gripper).
 * **Realsense ROS**: Driver for Realsense camera can be found [here](https://github.com/rjwb1/realsense-ros).
 
