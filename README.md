@@ -18,7 +18,7 @@ To install the Unity project, import the VR_Zorg_Etude folder and open it with U
 This project incorporates multiple different Git repositories due to its development involving several robots. Installation of the ROS components varies depending on the robot used, as each robot has its unique requirements and ROS workspace setups. The scripts in the Robot_scripts folder need to be imported into the workspace of your robot.
 
 * **Doosan Robot**: For real-time manipulation, build from a specific branch on their GitHub. This branch is tailored for real-time manipulation and can be found [here](https://github.com/ETS-J-Boutin/doosan-robot_RT). For detailed setup instructions, refer to this [issue](https://github.com/doosan-robotics/doosan-robot/issues/99) which also explains the procedure.
-** The ROS launches and scripts required to work with a Doosan robot are found [here](https://github.com/Lab-CORO/vr_unity_ros_doosan).
+  * The ROS launches and scripts required to work with a Doosan robot are found [here](https://github.com/Lab-CORO/vr_unity_ros_doosan).
 * **Kinova Robot**: Access the repository [here](https://github.com/Kinovarobotics/ros_kortex). Installation procedures are provided on the main page of the repository.
 * **Flexiv Robot**: The real-time control API for Flexiv requires C++, whereas the other robot used Python. Follow the C++ RDK installation instructions [here](https://github.com/flexivrobotics/flexiv_rdk).
 
