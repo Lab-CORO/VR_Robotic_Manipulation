@@ -21,7 +21,7 @@ This project incorporates multiple different Git repositories due to its develop
   * The ROS launches and scripts required to work with a Doosan robot are found [here](https://github.com/Lab-CORO/vr_unity_ros_doosan).
 * **Kinova Robot**: Access the repository [here](https://github.com/Kinovarobotics/ros_kortex). Installation procedures are provided on the main page of the repository.
 * **Flexiv Robot**: The real-time control API for Flexiv requires C++, whereas the other robot used Python. Follow the C++ RDK installation instructions [here](https://github.com/flexivrobotics/flexiv_rdk).
-  * The ROS file and project used for to manipulate the Flexiv in real time can be found [here](https://github.com/Lab-CORO/vr_unity_ros_flexiv). Unfortunately, the code might not work anymore as the last time it was tested was around november 2022.
+  * The ROS file and project used for to manipulate the Flexiv in real time can be found [here](https://github.com/Lab-CORO/vr_unity_ros_flexiv). Unfortunately, the code might not work anymore as the last time it was tested was around November 2022.
 
 ## Additional ROS Packages:
 
