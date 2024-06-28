@@ -105,7 +105,6 @@ To enable real-time manipulation with the Doosan robot, follow these steps to se
    roslaunch ros_tcp_endpoint endpoint.launch # LAunch the Unity-ROS bridge
    rosrun rqt_controller_manager rqt_controller_manager # Switch Doosan controller to velocity control.
 
-
 # Contributing
 
 We welcome contributions to our project. If you have suggestions or improvements, please fork the repository and submit a pull request. For substantial changes, please open an issue first to discuss what you would like to change. Please ensure to update tests as appropriate.
