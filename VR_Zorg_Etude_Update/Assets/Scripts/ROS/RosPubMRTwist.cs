@@ -30,7 +30,7 @@ public class RosPubMRTwist : MonoBehaviour
         float safetyTriggerValue = 0.0f;
 
         safetyTriggerValue = Input.GetAxis("XRI_Left_Trigger");
-        if (safetyTriggerValue > 0.5f )
+        if (safetyTriggerValue > 0.5f)
         {
             safetyTriggerPressed = true;
         }
@@ -45,10 +45,11 @@ public class RosPubMRTwist : MonoBehaviour
             leftPadInput.x = Input.GetAxis("XRI_Left_Primary2DAxis_Horizontal");
             rightPadInput.x = Input.GetAxis("XRI_Right_Primary2DAxis_Vertical");
             rightPadInput.y = Input.GetAxis("XRI_Right_Primary2DAxis_Horizontal");
+            
 
             twistMsg = new TwistMsg()
             {
-                linear = new Vector3Msg(rightPadInput.x * linearSpeed , 0, rightPadInput.y * linearSpeed),
+                linear = new Vector3Msg(rightPadInput.x * linearSpeed, 0, rightPadInput.y * linearSpeed),
                 angular = new Vector3Msg(0, leftPadInput.x * angularSpeed, 0)
             };
         }
