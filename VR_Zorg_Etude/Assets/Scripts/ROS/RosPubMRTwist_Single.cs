@@ -47,7 +47,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
 
         float linearX = 0, linearY = 0, angular_var = 0;
 
-        if (safetyTriggerPressed)
+        if (true)//(safetyTriggerPressed)
         {
             leftPadInput.x = moveDirection;
             rightPadInput.x = moveDirection;
