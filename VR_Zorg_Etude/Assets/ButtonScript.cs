@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEngine.Events;
 
+/// <summary>
+/// Invoke a event if the button have been pressed or released 
+/// </summary>
 public class ButtonScript : MonoBehaviour
 {
     public UnityEvent OnPress;

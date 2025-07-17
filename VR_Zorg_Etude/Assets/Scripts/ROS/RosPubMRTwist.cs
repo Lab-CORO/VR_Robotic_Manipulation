@@ -2,6 +2,10 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 
+/// <summary>
+/// Publish a twist message to ROS to move the mobile base with the controller in real time.
+/// </summary>
+
 public class RosPubMRTwist : MonoBehaviour
 {
     private ROSConnection _rosConnection;
@@ -12,8 +16,9 @@ public class RosPubMRTwist : MonoBehaviour
 
     private bool safetyTriggerPressed;
 
+    // Start is called before the first frame update
     private void Start()
-    {
+    {   // Connect to ROS and create a topic
         _rosConnection = ROSConnection.GetOrCreateInstance();
         _rosConnection.RegisterPublisher<TwistMsg>(topicName);
         twistMsg = new TwistMsg()
@@ -29,6 +34,7 @@ public class RosPubMRTwist : MonoBehaviour
         Vector2 rightPadInput = Vector2.zero;
         float safetyTriggerValue = 0.0f;
 
+        // Validate if the left trigger have been pressed. Act as dead man switch
         safetyTriggerValue = Input.GetAxis("XRI_Left_Trigger");
         if (safetyTriggerValue > 0.5f)
         {
@@ -41,12 +47,12 @@ public class RosPubMRTwist : MonoBehaviour
 
         if (safetyTriggerPressed)
         {
-
+            // Input to guide the mobile base 
             leftPadInput.x = Input.GetAxis("XRI_Left_Primary2DAxis_Horizontal");
             rightPadInput.x = Input.GetAxis("XRI_Right_Primary2DAxis_Vertical");
             rightPadInput.y = Input.GetAxis("XRI_Right_Primary2DAxis_Horizontal");
-            
 
+            // Initialize the message
             twistMsg = new TwistMsg()
             {
                 linear = new Vector3Msg(rightPadInput.x * linearSpeed, 0, rightPadInput.y * linearSpeed),

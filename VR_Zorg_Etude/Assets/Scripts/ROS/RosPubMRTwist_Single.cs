@@ -3,10 +3,15 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 using UnityEngine.UI;
 
+/// <summary>
+/// Publish a twist message to ROS to move manually the mobile base.
+/// </summary>
+
 public class RosPubMRTwist_Single : MonoBehaviour
 {
     private ROSConnection _rosConnection;
     public string topicName = "/r100_0597/cmd_vel";
+
     public float linearSpeed = 1.0f;
     public float angularSpeed = 0.5f;
 
@@ -14,20 +19,23 @@ public class RosPubMRTwist_Single : MonoBehaviour
     private float rtimeSpeedCoef = 1.0f;
 
     private TwistMsg twistMsg;
-    private bool safetyTriggerPressed;
+    //private bool safetyTriggerPressed;
 
+    //Mode
     private bool rtime_enabled = false;
     private bool manual_enabled = false;
 
+    // variable links to the toggle button from the mobile base menu. 
+    // Bool to limit the movement
     private bool x_transOnly = false;
     private bool y_transOnly = false;
     private bool rotOnly = false;
 
     private int moveDirection = 0; // 1 = avancer, -1 = reculer, 0 = arrêt
 
-
+    // Start is called before the first frame update
     private void Start()
-    {
+    {   // Connect to ROS and create a topic
         _rosConnection = ROSConnection.GetOrCreateInstance();
         _rosConnection.RegisterPublisher<TwistMsg>(topicName);
         twistMsg = new TwistMsg()
@@ -43,7 +51,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
         Vector2 leftPadInput = Vector2.zero;
         Vector2 rightPadInput = Vector2.zero;
         float safetyTriggerValue = Input.GetAxis("XRI_Left_Trigger");
-        safetyTriggerPressed = safetyTriggerValue > 0.5f;
+        //safetyTriggerPressed = safetyTriggerValue > 0.5f;
 
         float linearX = 0, linearY = 0, angular_var = 0;
 
@@ -61,7 +69,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
 
                 Debug.Log($"[MODE] Temps Réel actif | Coef = {rtimeSpeedCoef:F2}");
             }
-            else if (manual_enabled)
+            else if (manual_enabled) // Manual mode enabled, allow movement along a specified axis
             {
                 Debug.Log($"[MODE] Manuel actif | Coef = {manualSpeedCoef:F2}");
 
@@ -87,7 +95,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
             {
                 Debug.LogWarning("[MODE] Aucun mode activé (manuel ou temps réel)");
             }
-
+            // Initialize the message
             twistMsg = new TwistMsg()
             {
                 linear = new Vector3Msg(linearX, 0, linearY),
@@ -108,6 +116,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
         _rosConnection.Publish(topicName, twistMsg);
     }
 
+    // Function to assign the button to variables 
     public void XTranslationOnly(Toggle toggle) => x_transOnly = toggle.isOn;
     public void YTranslationOnly(Toggle toggle) => y_transOnly = toggle.isOn;
     public void RotationOnly(Toggle toggle) => rotOnly = toggle.isOn;
@@ -115,6 +124,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
     public void RealTimeModeEnabled(Toggle toggle) => rtime_enabled = toggle.isOn;
     public void ChangeManualSpeed(Slider slider) => manualSpeedCoef = Mathf.Clamp01(slider.value / 100f);
     public void ChangeRealTimeSpeed(Slider slider) => rtimeSpeedCoef = Mathf.Clamp01(slider.value / 100f);
+    
     // Quand on appuie sur le bouton "+" (avancer)
     public void MovePlusPress()
     {
