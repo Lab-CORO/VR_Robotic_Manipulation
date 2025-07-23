@@ -102,20 +102,20 @@ public class RosPubRTTwist : MonoBehaviour
 
         if (!_transZOnly && !_transXYOnly)
         {
-            _twistMsg.angular.x = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.z))*200;
-            _twistMsg.angular.y = CalculateAngularTwist(-SignAngle(rotDiff.eulerAngles.x))*200;
-            _twistMsg.angular.z = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.y))*200;
+            _twistMsg.angular.x = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.z));
+            _twistMsg.angular.y = CalculateAngularTwist(-SignAngle(rotDiff.eulerAngles.x));
+            _twistMsg.angular.z = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.y));
         }
 
         if (!_transZOnly)
         {
-            _twistMsg.linear.x = CalculateLinearTwist(posDiff.z)*200;
-            _twistMsg.linear.y = CalculateLinearTwist(-posDiff.x)*200;
+            _twistMsg.linear.x = CalculateLinearTwist(posDiff.z);
+            _twistMsg.linear.y = CalculateLinearTwist(-posDiff.x);
         }
 
         if (!_transXYOnly)
         {
-            _twistMsg.linear.z = CheckHeight(CalculateLinearTwist(posDiff.y))*200;
+            _twistMsg.linear.z = CheckHeight(CalculateLinearTwist(posDiff.y));
         }
 
         _rosConnection.Publish(topicName, _twistMsg);
