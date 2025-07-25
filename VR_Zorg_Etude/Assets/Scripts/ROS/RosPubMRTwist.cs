@@ -11,9 +11,9 @@ using UnityEngine.UI;
 public class RosPubMRTwist : MonoBehaviour
 {
     private ROSConnection _rosConnection;
-    public string topicName = "/r100_0597/cmd_vel";
-    public float linearSpeed = 1.0f;
-    public float angularSpeed = 0.5f;
+    public string topicName = "/unity/cmd_vel";
+    public float linearSpeed = 0.1f;
+    public float angularSpeed = 0.1f;
     private TwistMsg twistMsg;
 
     private bool safetyTriggerPressed;
@@ -26,6 +26,8 @@ public class RosPubMRTwist : MonoBehaviour
     {   // Connect to ROS and create a topic
         _rosConnection = ROSConnection.GetOrCreateInstance();
         _rosConnection.RegisterPublisher<TwistMsg>(topicName);
+
+        // Initialize the message
         twistMsg = new TwistMsg()
         {
             linear = new Vector3Msg(0, 0, 0),
@@ -62,11 +64,11 @@ public class RosPubMRTwist : MonoBehaviour
                 // Initialize the message
                 twistMsg = new TwistMsg()
                 {
-                    linear = new Vector3Msg(rightPadInput.x * linearSpeed, 0, rightPadInput.y * linearSpeed),
-                    angular = new Vector3Msg(0, leftPadInput.x * angularSpeed, 0)
+                    linear = new Vector3Msg(rightPadInput.x * linearSpeed, rightPadInput.y * linearSpeed, 0),
+                    angular = new Vector3Msg(0, 0, leftPadInput.x * angularSpeed)
                 };
             }
-            else
+            else // if no movement is ordered, send 0 
             {
                 twistMsg = new TwistMsg()
                 {

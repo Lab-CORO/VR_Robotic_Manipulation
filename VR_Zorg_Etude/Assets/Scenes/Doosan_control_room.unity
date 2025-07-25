@@ -11847,7 +11847,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae9f054e74a372c459ddb387e00f9757, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /r100-0597/cmd_vel
+  topicName: /unity/cmd_vel
   baseArticulationBody: {fileID: 0}
   baseMobileTransform: {fileID: 0}
 --- !u!1 &614886796
@@ -13827,9 +13827,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2400a2710c7d42f4abd78791e127f64e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /cmd_vel
-  linearSpeed: 1
-  angularSpeed: 10
+  topicName: unity/cmd_vel
+  linearSpeed: 0.1
+  angularSpeed: 0.1
   manualSpeedCoef: 1
 --- !u!1 &700036538
 GameObject:
@@ -14218,7 +14218,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae9f054e74a372c459ddb387e00f9757, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /cmd_vel
+  topicName: unity/cmd_vel
   baseArticulationBody: {fileID: 710786120}
   baseMobileTransform: {fileID: 607154940}
 --- !u!1 &711064276
@@ -14496,9 +14496,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 950e64e6d761593409a38a9bcfae51a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /cmd_vel
+  topicName: unity/cmd_vel
   linearSpeed: 0.1
-  angularSpeed: 10
+  angularSpeed: 0.1
 --- !u!1 &743781278
 GameObject:
   m_ObjectHideFlags: 0

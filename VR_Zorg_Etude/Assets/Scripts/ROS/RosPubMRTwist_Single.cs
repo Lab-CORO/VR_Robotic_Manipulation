@@ -4,28 +4,25 @@ using RosMessageTypes.Geometry;
 using UnityEngine.UI;
 
 /// <summary>
-/// Publish a twist message to ROS to move manually the mobile base.
+/// Publish a twist message to ROS to move manually the mobile base in manual time. 
 /// </summary>
 
 public class RosPubMRTwist_Single : MonoBehaviour
 {
     private ROSConnection _rosConnection;
-    public string topicName = "/r100_0597/cmd_vel";
+    public string topicName = "/unity/cmd_vel";
 
     public float linearSpeed = 1.0f;
     public float angularSpeed = 0.5f;
 
     [SerializeField] private float manualSpeedCoef = 1.0f;
-    private float rtimeSpeedCoef = 1.0f;
-
     private TwistMsg twistMsg;
-    //private bool safetyTriggerPressed;
+
 
     //Mode
-    private bool rtime_enabled = false;
     private bool manual_enabled = false;
 
-    // variable links to the toggle button from the mobile base menu. 
+    // Variable links to the toggle button from the mobile base menu. 
     // Bool to limit the movement
     private bool x_transOnly = false;
     private bool y_transOnly = false;
@@ -38,6 +35,8 @@ public class RosPubMRTwist_Single : MonoBehaviour
     {   // Connect to ROS and create a topic
         _rosConnection = ROSConnection.GetOrCreateInstance();
         _rosConnection.RegisterPublisher<TwistMsg>(topicName);
+       
+        // Initialize the message
         twistMsg = new TwistMsg()
         {
             linear = new Vector3Msg(0, 0, 0),
@@ -47,72 +46,39 @@ public class RosPubMRTwist_Single : MonoBehaviour
 
     private void Update()
     {
-        
-        Vector2 leftPadInput = Vector2.zero;
-        Vector2 rightPadInput = Vector2.zero;
-        float safetyTriggerValue = Input.GetAxis("XRI_Left_Trigger");
-        //safetyTriggerPressed = safetyTriggerValue > 0.5f;
-
+        // axis variable for TwistMsg
         float linearX = 0, linearY = 0, angular_var = 0;
 
-        if (true)//(safetyTriggerPressed)
+        if (manual_enabled) // Manual mode enabled, allow movement along a specified axis
         {
-            leftPadInput.x = moveDirection;
-            rightPadInput.x = moveDirection;
-            rightPadInput.y = moveDirection;
-
-            if (rtime_enabled)
+            if (moveDirection != 0)
             {
-                linearX = rightPadInput.x * linearSpeed * rtimeSpeedCoef;
-                linearY = rightPadInput.y * linearSpeed * rtimeSpeedCoef;
-                angular_var = leftPadInput.x * linearSpeed * rtimeSpeedCoef;
-
-                
-            }
-            else if (manual_enabled) // Manual mode enabled, allow movement along a specified axis
-            {
-                
 
                 if (x_transOnly)
-                {
-                    linearX = rightPadInput.x * linearSpeed * manualSpeedCoef;
-                    
-                }
+                { linearX = moveDirection * linearSpeed * manualSpeedCoef; }
 
                 if (y_transOnly)
-                {
-                    linearY = rightPadInput.y * linearSpeed * manualSpeedCoef;
-                    
-                }
+                { linearY = moveDirection * linearSpeed * manualSpeedCoef; }
 
                 if (rotOnly)
-                {
-                    angular_var = leftPadInput.x * angularSpeed * manualSpeedCoef;
-                    
-                }
-            }
-            else
-            {
+                { angular_var = moveDirection * angularSpeed * manualSpeedCoef; }
+
                 
+                twistMsg = new TwistMsg() // sends the appropriate value
+                {
+                    linear = new Vector3Msg(linearX, linearY, 0),
+                    angular = new Vector3Msg(0, 0, angular_var)
+                };
             }
-            // Initialize the message
-            twistMsg = new TwistMsg()
+            else // if no movement is ordered, send 0
             {
-                linear = new Vector3Msg(linearX, 0, linearY),
-                angular = new Vector3Msg(0, angular_var, 0)
-            };
-
-            
-        }
-        else
-        {
-            twistMsg = new TwistMsg()
-            {
-                linear = new Vector3Msg(0, 0, 0),
-                angular = new Vector3Msg(0, 0, 0)
-            };
-        }
-
+                twistMsg = new TwistMsg()
+                {
+                    linear = new Vector3Msg(0, 0, 0),
+                    angular = new Vector3Msg(0, 0, 0)
+                };
+            }
+        } 
         _rosConnection.Publish(topicName, twistMsg);
     }
 
@@ -121,10 +87,7 @@ public class RosPubMRTwist_Single : MonoBehaviour
     public void YTranslationOnly(Toggle toggle) => y_transOnly = toggle.isOn;
     public void RotationOnly(Toggle toggle) => rotOnly = toggle.isOn;
     public void ManualModeEnabled(Toggle toggle) => manual_enabled = toggle.isOn;
-    public void RealTimeModeEnabled(Toggle toggle) => rtime_enabled = toggle.isOn;
-    //public void ChangeManualSpeed(Slider slider) => manualSpeedCoef = Mathf.Clamp01(slider.value / 100f);
     public void ChangeManualSpeed(int value) => manualSpeedCoef = Mathf.Clamp01(value / 100f);
-    public void ChangeRealTimeSpeed(Slider slider) => rtimeSpeedCoef = Mathf.Clamp01(slider.value / 100f);
     
     // Quand on appuie sur le bouton "+" (avancer)
     public void MovePlusPress()
