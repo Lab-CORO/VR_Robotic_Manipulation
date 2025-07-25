@@ -14,6 +14,7 @@ public class RosPubMRTwist : MonoBehaviour
     public string topicName = "/unity/cmd_vel";
     public float linearSpeed = 0.1f;
     public float angularSpeed = 0.1f;
+    public float realTimeSpeedCoef = 1.0f;
     private TwistMsg twistMsg;
 
     private bool safetyTriggerPressed;
@@ -41,9 +42,10 @@ public class RosPubMRTwist : MonoBehaviour
         Vector2 rightPadInput = Vector2.zero;
         float safetyTriggerValue = 0.0f;
 
-        // Validate if the left trigger have been pressed. Act as dead man switch
+        
         safetyTriggerValue = Input.GetAxis("XRI_Left_Trigger");
-        if (rtime_enabled)
+        // real time mode enabled, allow movement with the controllers.
+        if (rtime_enabled)  
         {
             if (safetyTriggerValue > 0.5f)
             {
@@ -54,7 +56,8 @@ public class RosPubMRTwist : MonoBehaviour
                 safetyTriggerPressed = false;
             }
 
-            if (safetyTriggerPressed)
+            // Validate if the left trigger have been pressed. Act as dead man switch
+            if (safetyTriggerPressed) 
             {
                 // Input to guide the mobile base 
                 leftPadInput.x = Input.GetAxis("XRI_Left_Primary2DAxis_Horizontal");
@@ -64,8 +67,8 @@ public class RosPubMRTwist : MonoBehaviour
                 // Initialize the message
                 twistMsg = new TwistMsg()
                 {
-                    linear = new Vector3Msg(rightPadInput.x * linearSpeed, rightPadInput.y * linearSpeed, 0),
-                    angular = new Vector3Msg(0, 0, leftPadInput.x * angularSpeed)
+                    linear = new Vector3Msg(rightPadInput.x * linearSpeed * realTimeSpeedCoef, rightPadInput.y * linearSpeed * realTimeSpeedCoef, 0),
+                    angular = new Vector3Msg(0, 0, leftPadInput.x * angularSpeed * realTimeSpeedCoef)
                 };
             }
             else // if no movement is ordered, send 0 
@@ -84,4 +87,5 @@ public class RosPubMRTwist : MonoBehaviour
 
     // Function to assign the button to variables 
     public void RealTimeModeEnabled(Toggle toggle) => rtime_enabled = toggle.isOn;
+    public void ChangeRealTimeSpeed(int value) => realTimeSpeedCoef = Mathf.Clamp01(value / 100f);
 }

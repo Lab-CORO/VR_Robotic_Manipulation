@@ -78,8 +78,8 @@ public class RosPubMRTwist_Single : MonoBehaviour
                     angular = new Vector3Msg(0, 0, 0)
                 };
             }
+            _rosConnection.Publish(topicName, twistMsg);
         } 
-        _rosConnection.Publish(topicName, twistMsg);
     }
 
     // Function to assign the button to variables 
