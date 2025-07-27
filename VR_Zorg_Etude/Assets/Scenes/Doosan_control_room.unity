@@ -985,7 +985,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 40028028}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 074632cab556f5b408839af8574308df, type: 3}
   m_Name: 
@@ -9145,6 +9145,7 @@ Transform:
   - {fileID: 411851677}
   - {fileID: 739268392}
   - {fileID: 699575222}
+  - {fileID: 1471229512}
   m_Father: {fileID: 0}
   m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -23190,7 +23191,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 3
   m_Mass: 1.16
-  m_ParentAnchorPosition: {x: 0.120999806, y: 0.000000014901161, z: -0.00000018211192}
+  m_ParentAnchorPosition: {x: 0.120999925, y: 0.000000014901161, z: -0.00000012250727}
   m_ParentAnchorRotation: {x: -0.0000000337849, y: 0.000000005035316, z: -1, w: -0.00010192394}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -28871,7 +28872,7 @@ Transform:
   m_GameObject: {fileID: 1378502021}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0.099999994, z: 0.24205032}
-  m_LocalScale: {x: 0.8500005, y: 0.75, z: 1.0300004}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1850745580}
@@ -28911,7 +28912,7 @@ ParentConstraint:
   m_TranslationAtRest: {x: 0, y: 0.099999994, z: 0.24205032}
   m_RotationAtRest: {x: 0, y: 0, z: 0}
   m_TranslationOffsets:
-  - {x: 0.24205035, y: -0.3, z: 0}
+  - {x: 0.23500024, y: -0.4, z: 0}
   m_RotationOffsets:
   - {x: 0, y: 90, z: 0}
   m_AffectTranslationX: 1
@@ -30610,6 +30611,59 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470081080}
   m_CullTransparentMesh: 1
+--- !u!1 &1471229511
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1471229512}
+  - component: {fileID: 1471229513}
+  m_Layer: 0
+  m_Name: 'Ros Client '
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1471229512
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1471229511}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 457515851}
+  m_RootOrder: 5
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1471229513
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1471229511}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 031d2ee2d104c80428eaf31a551330ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotBase: {fileID: 350331883}
+  Wall: {fileID: 350331883}
+  serviceName: /dsr01/motion/move_blending
+  velocity:
+  - 50
+  - 20
+  acceleration:
+  - 100
+  - 50
 --- !u!1 &1474260499
 GameObject:
   m_ObjectHideFlags: 0
