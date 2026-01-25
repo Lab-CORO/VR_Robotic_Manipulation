@@ -2,56 +2,123 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using RosMessageTypes.Sensor;
+using Unity.Robotics.ROSTCPConnector;
 
 /// <summary>
-/// Control the activation of a camera connected to this PC and displays it in an image material.
+/// Subscribe to ROS compressed image topic and display it in an Image component with material support.
+/// Migrated from USB webcam (WebCamTexture) to ROS2 image streaming.
 /// </summary>
 public class ToggleWebcam : MonoBehaviour
 {
-    private WebCamTexture _webCamTexture;
-    private Material _material;
+    private ROSConnection _rosConnection;
     private Image _image;
+    private Texture2D _texture2D;
 
-    [SerializeField] private int cameraIndex = 2;
-    
+    [Header("ROS Configuration")]
+    [SerializeField] private string topicName = "/image_raw";
+
+    [Header("State Management")]
+    [SerializeField, Tooltip("Determine if the image is open")]
+    private bool isOpen;
+    private bool _messageIsProcessed;
+    private bool _messageIsReceived;
+
     // Start is called before the first frame update
     private void Start()
     {
-        _webCamTexture = new WebCamTexture();
-        var devices = WebCamTexture.devices;
-        _webCamTexture.deviceName = devices[cameraIndex].name; // 2 to take the plugged in camera
-        
-        
+        // Initialize texture and get Image component
+        _texture2D = new Texture2D(1, 1);
         _image = GetComponentInChildren<Image>();
-        _image.material.mainTexture = _webCamTexture;
-        
-        // Remove from comment to see the different camera.
-        // foreach (var variableCamDevice in devices)
-        // {
-        //     print(variableCamDevice.name);
-        // }
 
+        if (_image == null)
+        {
+            Debug.LogError("[ToggleWebcam] No Image component found in children!");
+            enabled = false;
+            return;
+        }
+
+        if (_image.material != null)
+        {
+            _image.material.mainTexture = _texture2D;
+        }
+
+        // Connect to ROS and subscribe to topic
+        try
+        {
+            _rosConnection = ROSConnection.GetOrCreateInstance();
+            _rosConnection.Subscribe<CompressedImageMsg>(topicName, GetImage);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[ToggleWebcam] Failed to connect to ROS: {e.Message}");
+            enabled = false;
+            return;
+        }
+
+        // Hide the image on startup
         Close();
     }
 
-    // Close the camera
+    private void LateUpdate()
+    {
+        if (!_messageIsProcessed) return;
+
+        // Update the texture on the material
+        if (_image != null && _image.material != null)
+        {
+            _image.material.mainTexture = _texture2D;
+        }
+
+        _messageIsProcessed = false;
+        _messageIsReceived = false;
+    }
+
+    /// <summary>
+    /// Take an image from ROS and insert it into a texture asynchronously.
+    /// </summary>
+    /// <param name="compressedImageMsg">A ROS message of type sensor_msgs/CompressedImage</param>
+    private void GetImage(CompressedImageMsg compressedImageMsg)
+    {
+        if (!isOpen || _messageIsProcessed || !gameObject.activeSelf) return;
+        if (_messageIsReceived) return;
+        Debug.Log($"Image reçue: {compressedImageMsg.header}");
+
+        _messageIsReceived = true;
+        StartCoroutine(ProcessImage(compressedImageMsg.data));
+    }
+
+    /// <summary>
+    /// Put an image into a texture
+    /// </summary>
+    /// <param name="receivedImageData">Compressed image data bytes</param>
+    /// <returns></returns>
+    private IEnumerator ProcessImage(byte[] receivedImageData)
+    {
+        yield return null;
+        _texture2D.LoadImage(receivedImageData);
+        yield return null;
+        _messageIsProcessed = true;
+    }
+
+    // Close the image stream
     private void Close()
     {
-        _webCamTexture.Stop();
+        isOpen = false;
         gameObject.SetActive(false);
     }
 
-    // Open the camera
+    // Open the image stream
     private void Open()
     {
-        _webCamTexture.Play();
+        isOpen = true;
         gameObject.SetActive(true);
     }
 
     /// <summary>
-    /// Play or stop a camera connected to this PC with a toggle.
+    /// Play or stop the ROS image stream with a toggle.
     /// </summary>
-    /// <param name="toggle">The toggle that determine if its activated or not.</param>
+    /// <param name="toggle">The toggle that determines if it's activated or not.</param>
     public void ToggleActivation(Toggle toggle)
     {
         switch (toggle.isOn)
@@ -66,9 +133,9 @@ public class ToggleWebcam : MonoBehaviour
     }
 
     /// <summary>
-    /// Play or stop a camera connected to this PC with a bool.
+    /// Play or stop the ROS image stream with a bool.
     /// </summary>
-    /// <param name="state">The desired state of the camera.</param>
+    /// <param name="state">The desired state of the image stream.</param>
     public void ManageCamera(bool state)
     {
         switch (state)
@@ -79,6 +146,14 @@ public class ToggleWebcam : MonoBehaviour
             case false:
                 Close();
                 break;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (_texture2D != null)
+        {
+            Destroy(_texture2D);
         }
     }
 }

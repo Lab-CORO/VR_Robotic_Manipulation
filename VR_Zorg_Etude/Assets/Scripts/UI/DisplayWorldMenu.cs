@@ -14,12 +14,34 @@ public class DisplayWorldMenu : MonoBehaviour
     // Determine if you can activate the menu or not in the tutorial
     [SerializeField] bool tutorialActiveState;
 
+    private CanvasGroup _canvasGroup;
+
     // Start is called before the first frame update
     private void Start()
     {
         if (Camera.main != null) _camera = Camera.main.transform;
-        
+
+        // Try to get or add CanvasGroup for visibility control
+        _canvasGroup = GetComponent<CanvasGroup>();
+        if (_canvasGroup == null)
+        {
+            Debug.LogWarning("[DisplayWorldMenu] No CanvasGroup found, adding one automatically.");
+            _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
+
         CloseMenu();
+        Debug.Log("[DisplayWorldMenu] Initialized. GameObject active: " + gameObject.activeSelf);
+    }
+
+    // Update is called once per frame
+    private void Update()
+    {
+        // Toggle menu with M key (for Menu) or Tab key in desktop mode
+        if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Tab))
+        {
+            Debug.Log("[DisplayWorldMenu] M or Tab pressed!");
+            ToggleMenu();
+        }
     }
 
     /// <summary>
@@ -29,12 +51,24 @@ public class DisplayWorldMenu : MonoBehaviour
     {
         var newPos = _camera.position;
         var newRot = _camera.rotation.eulerAngles.y;
-        
-        gameObject.SetActive(true);
-        
+
+        // Use CanvasGroup to show menu instead of SetActive(true)
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 1f;
+            _canvasGroup.interactable = true;
+            _canvasGroup.blocksRaycasts = true;
+        }
+        else
+        {
+            gameObject.SetActive(true);
+        }
+
         // Place the Menu in front of the user
         transform.position = new Vector3(newPos.x, 0, newPos.z);
         transform.rotation = Quaternion.Euler(0, newRot, 0);
+
+        Debug.Log("[DisplayWorldMenu] Menu opened at position: " + transform.position);
     }
 
     /// <summary>
@@ -42,7 +76,19 @@ public class DisplayWorldMenu : MonoBehaviour
     /// </summary>
     private void CloseMenu()
     {
-        gameObject.SetActive(false);
+        // Use CanvasGroup to hide menu instead of SetActive(false)
+        // This keeps the script active so it can still receive keyboard input
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 0f;
+            _canvasGroup.interactable = false;
+            _canvasGroup.blocksRaycasts = false;
+        }
+        else
+        {
+            gameObject.SetActive(false);
+        }
+        Debug.Log("[DisplayWorldMenu] Menu closed");
     }
 
     /// <summary>
@@ -55,8 +101,11 @@ public class DisplayWorldMenu : MonoBehaviour
         {
             return;
         }
-        
-        if (gameObject.activeSelf)
+
+        // Check if menu is visible using CanvasGroup alpha
+        bool isMenuVisible = _canvasGroup != null ? _canvasGroup.alpha > 0.5f : gameObject.activeSelf;
+
+        if (isMenuVisible)
         {
             CloseMenu();
         }
@@ -80,7 +129,10 @@ public class DisplayWorldMenu : MonoBehaviour
     /// </summary>
     public void ToggleMenu()
     {
-        if (gameObject.activeSelf)
+        // Check if menu is visible using CanvasGroup alpha
+        bool isMenuVisible = _canvasGroup != null ? _canvasGroup.alpha > 0.5f : gameObject.activeSelf;
+
+        if (isMenuVisible)
         {
             CloseMenu();
         }
