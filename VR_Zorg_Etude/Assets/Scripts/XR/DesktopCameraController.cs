@@ -21,6 +21,13 @@ public class DesktopCameraController : MonoBehaviour
     [Header("VR Detection")]
     [SerializeField] private bool autoDetectVR = true;
 
+    [Header("Target Control Settings")]
+    [SerializeField, Tooltip("Robot target to control with arrow keys")]
+    private Transform robotTarget;
+
+    [SerializeField, Tooltip("Speed for moving the target in meters per second")]
+    private float targetMoveSpeed = 0.1f;
+
     // Private variables
     private Transform cameraTransform;      // Camera Offset transform
     private bool isDesktopMode = false;     // Desktop mode active or not
@@ -101,6 +108,7 @@ public class DesktopCameraController : MonoBehaviour
         // Handle movement and mouse look
         HandleMovement();
         HandleMouseLook();
+        HandleTargetMovement();  // Control robot target with arrow keys
     }
 
     /// <summary>
@@ -171,6 +179,35 @@ public class DesktopCameraController : MonoBehaviour
         rotationX -= mouseY;
         rotationX = Mathf.Clamp(rotationX, -90f, 90f); // Prevent over-rotation
         cameraTransform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+    }
+
+    /// <summary>
+    /// Handles IJKL and UO keys to move the robot target in world space
+    /// </summary>
+    private void HandleTargetMovement()
+    {
+        if (robotTarget == null) return;
+
+        // Get keyboard input
+        float targetX = 0f;  // Left/Right
+        float targetY = 0f;  // Up/Down
+        float targetZ = 0f;  // Forward/Backward
+
+        // Horizontal movement (IJKL)
+        if (Input.GetKey(KeyCode.I)) targetZ += 1f;       // Forward (+Z)
+        if (Input.GetKey(KeyCode.K)) targetZ -= 1f;       // Backward (-Z)
+        if (Input.GetKey(KeyCode.J)) targetX -= 1f;       // Left (-X)
+        if (Input.GetKey(KeyCode.L)) targetX += 1f;       // Right (+X)
+
+        // Vertical movement (UO)
+        if (Input.GetKey(KeyCode.U)) targetY += 1f;       // Up (+Y)
+        if (Input.GetKey(KeyCode.O)) targetY -= 1f;       // Down (-Y)
+
+        // Calculate movement in world space
+        Vector3 targetMovement = new Vector3(targetX, targetY, targetZ) * targetMoveSpeed * Time.deltaTime;
+
+        // Apply movement
+        robotTarget.position += targetMovement;
     }
 
     /// <summary>

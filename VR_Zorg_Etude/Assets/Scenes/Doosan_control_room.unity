@@ -11890,14 +11890,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d262b22148c7a84fbe676794b1ab572, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /unity/twist
-  linearSpeed: 0.1
-  angularSpeed: 0.31415927
+  topicName: /unity/target_pose
   speedCoefficient: 1
+  robotBase: {fileID: 40028029}
   endEffector: {fileID: 1583494747}
   target: {fileID: 986516485159089589}
-  heightReference: {fileID: 1583494747}
-  minimalHeight: 0.8
 --- !u!1 &773042728
 GameObject:
   m_ObjectHideFlags: 0
@@ -31929,6 +31926,8 @@ MonoBehaviour:
   verticalSpeed: 3
   mouseSensitivity: 2
   autoDetectVR: 1
+  robotTarget: {fileID: 986516485159089589}
+  targetMoveSpeed: 0.1
 --- !u!1 &1990161385
 GameObject:
   m_ObjectHideFlags: 0

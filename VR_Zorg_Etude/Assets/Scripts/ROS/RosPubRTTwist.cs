@@ -1,59 +1,92 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using RosMessageTypes.BuiltinInterfaces;
 using RosMessageTypes.Geometry;
-using Unity.Mathematics;
+using RosMessageTypes.Std;
 using Unity.Robotics.ROSTCPConnector;
+using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Publish a twist message to ROS that scale with the distance between a target and the end effector of the robot.
+/// Publish the target pose (position + orientation) relative to robot base to ROS.
+/// Simplified from Twist (velocity) publishing - now sends direct pose for inverse kinematics.
 /// </summary>
 public class RosPubRTTwist : MonoBehaviour
 {
     private ROSConnection _rosConnection;
-    private TwistMsg _twistMsg;
-    
-    [Header("Topic name to publish to")] public string topicName = "/unity/twist";
-    
+    private PoseStampedMsg _poseStampedMsg;
+
+    [Header("Topic name to publish to")] public string topicName = "/unity/target_pose";
+
     [Header("Speed Coefficient")]
-    [SerializeField] private float linearSpeed = .1f;
-    [SerializeField] private float angularSpeed = Mathf.PI / 10f;
     [Tooltip("Use with UI to change the percentage of the speed")] [SerializeField]
     private float speedCoefficient = 1f;
 
     [Header("Objects references")]
+    [Tooltip("Base of the robot arm (base_0)")] [SerializeField] private Transform robotBase;
     [Tooltip("End effector of the robot")] [SerializeField] private Transform endEffector;
     [Tooltip("Target to follow")] [SerializeField] private Transform target;
 
-    [Header("Reference to limit movement"), Tooltip("Limit the movement in Z negative"), SerializeField]
-    private Transform heightReference;
-    [SerializeField] private float minimalHeight;
+    [Header("Publish Settings")]
+    [Tooltip("Minimum position change (in meters) to trigger publish")] [SerializeField]
+    private float positionThreshold = 0.001f;
+    [Tooltip("Minimum rotation change (in degrees) to trigger publish")] [SerializeField]
+    private float rotationThreshold = 0.1f;
 
-    // Bool to limit the movement
-    private bool _transZOnly;
-    private bool _transXYOnly;
-    
     // Coroutine
     private bool _recurrentPublish;
     private IEnumerator _recurrentPublishCoroutine;
+
+    // Last published pose for change detection
+    private Vector3 _lastPublishedPosition;
+    private Quaternion _lastPublishedRotation;
+    private bool _hasPublishedOnce = false;
     
     // Start is called before the first frame update
     private void Start()
     {
+        // Vérification
+        if (robotBase == null)
+        {
+            Debug.LogError("[RosPubRTTwist] Robot base (base_0) not assigned!");
+            enabled = false;
+            return;
+        }
+
+        if (target == null || endEffector == null)
+        {
+            Debug.LogError("[RosPubRTTwist] Target or endEffector not assigned!");
+            enabled = false;
+            return;
+        }
+
+        Debug.Log("[RosPubRTTwist] Initializing...");
+
         // Connect to ROS and create a topic
         _rosConnection = ROSConnection.GetOrCreateInstance();
-        _rosConnection.RegisterPublisher<TwistMsg>(topicName);
-        
-        _recurrentPublishCoroutine = RecurrentPublishJoints();
-        
+        _rosConnection.RegisterPublisher<PoseStampedMsg>(topicName);
+
+        Debug.Log($"[RosPubRTTwist] Publisher registered on topic: {topicName}");
+
+        _recurrentPublishCoroutine = RecurrentPublishPose();
+
         // Initialize the message
-        _twistMsg = new TwistMsg()
+        _poseStampedMsg = new PoseStampedMsg();
+
+        Debug.Log($"[RosPubRTTwist] Initialized. Publishing is: {(_recurrentPublish ? "ACTIVE" : "INACTIVE")}");
+        Debug.Log("[RosPubRTTwist] Press P to toggle publishing ON/OFF");
+    }
+
+    // Update to handle keyboard toggle
+    private void Update()
+    {
+        // Toggle publishing with P key
+        if (Input.GetKeyDown(KeyCode.P))
         {
-            angular = new Vector3Msg(0, 0, 0),
-            linear = new Vector3Msg(0, 0, 0)
-        };
+            PublishPersistent(!_recurrentPublish);
+        }
     }
 
     /// <summary>
@@ -64,126 +97,104 @@ public class RosPubRTTwist : MonoBehaviour
     {
         _recurrentPublish = isActive;
 
+        Debug.Log($"[RosPubRTTwist] PublishPersistent called with: {isActive}");
+
         switch (_recurrentPublish)
         {
             case true:
+                Debug.Log("[RosPubRTTwist] Starting recurrent publishing coroutine...");
                 StartCoroutine(_recurrentPublishCoroutine);
                 break;
             case false:
+                Debug.Log("[RosPubRTTwist] Stopping recurrent publishing coroutine...");
                 StopCoroutine(_recurrentPublishCoroutine);
-                _twistMsg.angular = new Vector3Msg(0, 0, 0);
-                _twistMsg.linear = new Vector3Msg(0, 0, 0);
-                _rosConnection.Publish(topicName,_twistMsg);
+                // Optionnel: publier une pose "neutre" ou ne rien faire
                 break;
         }
     }
-    
+
     /// <summary>
     /// Call the publish function every deltaTime
     /// </summary>
     /// <returns></returns>
-    private IEnumerator RecurrentPublishJoints()
+    private IEnumerator RecurrentPublishPose()
     {
+        Debug.Log("[RosPubRTTwist] RecurrentPublishPose coroutine started");
         while (_recurrentPublish)
         {
-            PublishTwistMessage();
+            PublishPoseMessage();
             yield return new WaitForSeconds(Time.deltaTime);
         }
+        Debug.Log("[RosPubRTTwist] RecurrentPublishPose coroutine ended");
     }
 
     /// <summary>
-    /// Publish the message to ROS
-    /// This function works with the Doosan Coordinate System
+    /// Publish the target pose relative to robot base to ROS using ROSGeometry for coordinate conversion
+    /// Only publishes if position or rotation changed beyond thresholds
     /// </summary>
-    private void PublishTwistMessage()
+    private void PublishPoseMessage()
     {
-        var posDiff = target.position - endEffector.position;
-        var rotDiff = endEffector.rotation * Quaternion.Inverse(target.rotation);
-
-        if (!_transZOnly && !_transXYOnly)
+        // Check for changes if we've published at least once
+        if (_hasPublishedOnce)
         {
-            _twistMsg.angular.x = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.z));
-            _twistMsg.angular.y = CalculateAngularTwist(-SignAngle(rotDiff.eulerAngles.x));
-            _twistMsg.angular.z = CalculateAngularTwist(SignAngle(rotDiff.eulerAngles.y));
+            // Calculate position change (in meters)
+            float positionDelta = Vector3.Distance(target.position, _lastPublishedPosition);
+
+            // Calculate rotation change (in degrees)
+            float rotationDelta = Quaternion.Angle(_lastPublishedRotation, target.rotation);
+
+            // Skip publishing if changes are below thresholds
+            if (positionDelta < positionThreshold && rotationDelta < rotationThreshold)
+            {
+                return;
+            }
+
+            Debug.Log($"[RosPubRTTwist] Change detected - Position: {positionDelta:F4}m, Rotation: {rotationDelta:F2}°");
         }
 
-        if (!_transZOnly)
+        // Calculer la pose de target par rapport à robotBase (en coordonnées Unity)
+        Vector3 localPositionUnity = robotBase.InverseTransformPoint(target.position);
+        Quaternion localRotationUnity = Quaternion.Inverse(robotBase.rotation) * target.rotation;
+
+        Debug.Log($"[RosPubRTTwist] Target Unity Position: {target.position}, Local: {localPositionUnity}");
+
+        // Conversion Unity → ROS coordinates avec ROSGeometry
+        // Utilise .To<FLU>() pour convertir automatiquement Unity (Y-up) vers ROS (Z-up)
+        Vector3<FLU> rosPosition = localPositionUnity.To<FLU>();
+        Quaternion<FLU> rosRotation = localRotationUnity.To<FLU>();
+
+        Debug.Log($"[RosPubRTTwist] ROS Position: {rosPosition}, ROS Rotation: {rosRotation}");
+
+        // Créer le message Header
+        _poseStampedMsg.header = new HeaderMsg
         {
-            _twistMsg.linear.x = CalculateLinearTwist(posDiff.z);
-            _twistMsg.linear.y = CalculateLinearTwist(-posDiff.x);
-        }
-
-        if (!_transXYOnly)
-        {
-            _twistMsg.linear.z = CheckHeight(CalculateLinearTwist(posDiff.y));
-        }
-
-        _rosConnection.Publish(topicName, _twistMsg);
-    }
-
-    /// <summary>
-    /// Calculate the required linear speed to move depending on the distance
-    /// </summary>
-    /// <param name="difference">Difference in position on an axis from two different points</param>
-    /// <returns>Speed value</returns>
-    private float CalculateLinearTwist(float difference)
-    {
-        var absDifference = Mathf.Abs(difference);
-        var sign = Mathf.Sign(difference);
-        const float innerThreshold = 0.01f;
-        const float outerThreshold = 0.5f;
-
-        return absDifference switch
-        {
-            // Linear variation
-             < innerThreshold => 0,
-             >= innerThreshold and < outerThreshold => difference / outerThreshold * linearSpeed * speedCoefficient,
-             _ => linearSpeed * speedCoefficient * sign
-
-            // Logarithmic variation
-            // < innerThreshold => 0,
-            // >= innerThreshold and < outerThreshold => (0.4f * Mathf.Log10(absDifference / outerThreshold) + 1) *
-            //                                           linearSpeed *
-            //                                           speedCoefficient * sign,
-            // _ => linearSpeed * speedCoefficient * sign
+            stamp = new TimeMsg
+            {
+                sec = (int)Time.time,
+                nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
+            },
+            frame_id = "base_0"  // Frame de référence
         };
-    }
 
-    /// <summary>
-    /// Calculate the required angular speed to move depending on the distance
-    /// </summary>
-    /// <param name="difference">Difference in rotation on an axis from two different points</param>
-    /// <returns>Speed value in degree</returns>
-    private float CalculateAngularTwist(float difference)
-    {
-        var absDifference = Mathf.Abs(difference);
-        var sign = Mathf.Sign(difference);
-        const float innerThreshold = 1f;
-        const float outerThreshold = 45f;
-
-        return absDifference switch
+        // Créer le message Pose avec les coordonnées ROS converties
+        _poseStampedMsg.pose = new PoseMsg
         {
-            < innerThreshold => 0,
-            >= innerThreshold and < outerThreshold => difference / outerThreshold * angularSpeed * speedCoefficient,
-            _ => angularSpeed * speedCoefficient * sign
+            position = rosPosition,      // Vector3<FLU> se convertit automatiquement en PointMsg
+            orientation = rosRotation    // Quaternion<FLU> se convertit automatiquement en QuaternionMsg
         };
+
+        // Publier
+        _rosConnection.Publish(topicName, _poseStampedMsg);
+        Debug.Log($"[RosPubRTTwist] Message published to {topicName}");
+
+        // Update last published values for next comparison
+        _lastPublishedPosition = target.position;
+        _lastPublishedRotation = target.rotation;
+        _hasPublishedOnce = true;
     }
 
-    /// <summary>
-    /// Return an angle between -180 and 180 instead of 0 to 360;
-    /// This allow the rotation to go in both direction.
-    /// </summary>
-    /// <param name="angle">An angle between 0 and 360</param>
-    /// <returns>A sign angle between -180 and 180</returns>
-    private static float SignAngle(float angle)
-    {
-        if (angle > 180)
-        {
-            return angle - 360;
-        }
 
-        return angle;
-    }
+
 
     /// <summary>
     /// Set the target position and rotation the same as the endEffector position and rotation
@@ -210,38 +221,5 @@ public class RosPubRTTwist : MonoBehaviour
             > 100 => 1,
             _ => newCoefficient / 100
         };
-    }
-    
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="toggle"></param>
-    public void OnlyZTranslation(Toggle toggle)
-    {
-        _transZOnly = toggle.isOn;
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="toggle"></param>
-    public void OnlyXYTranslation(Toggle toggle)
-    {
-        _transXYOnly = toggle.isOn;
-    }
-
-    /// <summary>
-    /// Prevent to go further down in Z if too low.
-    /// </summary>
-    /// <param name="speedInZ">The current desired speed to send.</param>
-    /// <returns>Current speed in Z or 0 if too low with a negative speed.</returns>
-    private float CheckHeight(float speedInZ)
-    {
-        if (heightReference.position.y < minimalHeight && speedInZ < 0)
-        {
-            return 0;
-        }
-
-        return speedInZ;
     }
 }

@@ -82,7 +82,7 @@ public class ToggleWebcam : MonoBehaviour
     {
         if (!isOpen || _messageIsProcessed || !gameObject.activeSelf) return;
         if (_messageIsReceived) return;
-        Debug.Log($"Image reçue: {compressedImageMsg.header}");
+        // Debug.Log($"Image reçue: {compressedImageMsg.header}");
 
         _messageIsReceived = true;
         StartCoroutine(ProcessImage(compressedImageMsg.data));
