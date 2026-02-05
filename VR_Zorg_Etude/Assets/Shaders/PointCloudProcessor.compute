@@ -1,0 +1,86 @@
+// Point Cloud Processor Compute Shader
+// Converts depth image to 3D point cloud with ROS to Unity coordinate conversion
+
+#pragma kernel GeneratePointCloud
+#pragma kernel ApplyRGBColors
+
+// Input: Depth texture
+Texture2D<float> _DepthTexture;
+SamplerState sampler_DepthTexture;
+
+// Input: RGB texture (for future color support)
+Texture2D<float4> _RGBTexture;
+SamplerState sampler_RGBTexture;
+
+// Output: Point positions and colors
+RWStructuredBuffer<float3> _PositionBuffer;
+RWStructuredBuffer<float4> _ColorBuffer;
+
+// Camera intrinsics parameters
+float _FocalLengthX;       // fx from camera matrix K
+float _FocalLengthY;       // fy from camera matrix K
+float _PrincipalPointX;    // cx from camera matrix K
+float _PrincipalPointY;    // cy from camera matrix K
+float _DepthScale;         // Depth units to meters conversion (usually 1.0 or 0.001)
+int _Width;                // Image width (1024)
+int _Height;               // Image height (1024)
+
+// Depth filtering
+float _MinDepth;           // Minimum valid depth (meters)
+float _MaxDepth;           // Maximum valid depth (meters)
+
+[numthreads(8,8,1)]
+void GeneratePointCloud(uint3 id : SV_DispatchThreadID)
+{
+    // Check bounds
+    if (id.x >= (uint)_Width || id.y >= (uint)_Height)
+        return;
+
+    int index = id.y * _Width + id.x;
+
+    // Read depth value from texture
+    float depth = _DepthTexture[id.xy] * _DepthScale;
+
+    // Filter invalid depth values
+    if (depth <= _MinDepth || depth > _MaxDepth || isnan(depth) || isinf(depth))
+    {
+        // Set to invalid position (will be culled or hidden)
+        _PositionBuffer[index] = float3(0, -1000, 0);
+        return;
+    }
+
+    // Unproject 2D pixel + depth to 3D point in camera coordinates
+    // Camera model: x = (u - cx) * z / fx, y = (v - cy) * z / fy
+    float u = (float)id.x;
+    float v = (float)id.y;
+
+    float x_cam = (u - _PrincipalPointX) * depth / _FocalLengthX;
+    float y_cam = (v - _PrincipalPointY) * depth / _FocalLengthY;
+    float z_cam = depth;
+
+    // Point in ROS camera coordinates (X=forward, Y=left, Z=up)
+    float3 ros_position = float3(z_cam, -x_cam, -y_cam);
+
+    // Convert ROS coordinates (X=forward, Y=left, Z=up) to Unity coordinates (X=right, Y=up, Z=forward)
+    // Transformation: Unity = (-ROS.Y, ROS.Z, ROS.X)
+    float3 unity_position = float3(-ros_position.y, ros_position.z, ros_position.x);
+
+    // Write to position buffer
+    _PositionBuffer[index] = unity_position;
+}
+
+[numthreads(8,8,1)]
+void ApplyRGBColors(uint3 id : SV_DispatchThreadID)
+{
+    // Check bounds
+    if (id.x >= (uint)_Width || id.y >= (uint)_Height)
+        return;
+
+    int index = id.y * _Width + id.x;
+
+    // Sample RGB texture at corresponding pixel
+    float4 color = _RGBTexture[id.xy];
+
+    // Write to color buffer (RGBA)
+    _ColorBuffer[index] = color;
+}
