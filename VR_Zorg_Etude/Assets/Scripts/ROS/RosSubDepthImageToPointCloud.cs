@@ -75,7 +75,7 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     [Header("Point Cloud Settings")]
     [Tooltip("Determine if the point cloud is visible")]
-    [SerializeField] private bool isOpen = false;
+    [SerializeField] private bool isOpen = true;
 
     [Tooltip("Transform where the point cloud should be positioned")]
     [SerializeField] private Transform attachPoint;
@@ -93,7 +93,10 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     [SerializeField] private float maxDepth = 10.0f;
 
     [Tooltip("Downsampling factor (1=full res, 2=half res, 4=quarter res)")]
-    [SerializeField, Range(1, 4)] private int downsampleFactor = 1;
+    [SerializeField, Range(1, 8)] private int downsampleFactor = 4;
+
+    [Tooltip("Max point cloud updates per second (Reinit is expensive)")]
+    [SerializeField, Range(1, 30)] private int maxUpdatesPerSecond = 5;
 
     [Tooltip("Enable RGB color support (requires RGB topic)")]
     [SerializeField] private bool enableRGBColors = false;
@@ -109,10 +112,10 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     #region State Management
 
-    private bool _depthMessageReceived = false;
-    private bool _depthMessageProcessing = false;
+    // Latest depth message from ROS (replaces coroutine approach)
+    private ImageMsg _latestDepthMsg;
     private bool _rgbMessageReceived = false;
-    private bool _needsVFXReinit = true;
+    private float _lastUpdateTime;
 
     private int _pointCount;
     private int _currentWidth;
@@ -163,13 +166,16 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
             InitializeMockIntrinsics();
         }
 
-        // Start closed
-        ClosePointCloud();
+        // Respect Inspector isOpen value
+        if (isOpen)
+            OpenPointCloud();
+        else
+            ClosePointCloud();
     }
 
     private void LateUpdate()
     {
-        if (!isOpen || !gameObject.activeSelf) return;
+        if (!isOpen) return;
 
         // Check if we have valid camera intrinsics
         if (!_intrinsics.isValid)
@@ -185,10 +191,18 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         }
 
         // Check if we have new depth data
-        if (!_depthMessageReceived) return;
+        if (_latestDepthMsg == null) return;
 
-        // Mark as processed so we don't re-dispatch every frame
-        _depthMessageReceived = false;
+        // Throttle update rate to avoid costly Reinit every frame
+        if (Time.time - _lastUpdateTime < 1f / maxUpdatesPerSecond) return;
+        _lastUpdateTime = Time.time;
+
+        // Grab latest message and clear it so we don't reprocess
+        var msg = _latestDepthMsg;
+        _latestDepthMsg = null;
+
+        // Process depth image directly (no coroutine)
+        ProcessDepthImage(msg);
 
         // Initialize GPU resources if needed
         if (_positionBuffer == null)
@@ -199,8 +213,11 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         // Dispatch compute shader to generate point cloud
         DispatchPointCloudGeneration();
 
-        // Update VFX Graph
+        // Update VFX Graph and Reinit to refresh particle positions
         UpdateVFXGraph();
+
+        // Update debug image
+        UpdateDepthDebugImage();
 
         // Update transform
         if (attachPoint != null)
@@ -219,12 +236,18 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     #region ROS Message Handlers
 
+    private int _depthMsgCount = 0;
+
     private void ReceivedDepthImage(ImageMsg msg)
     {
-        if (!isOpen || _depthMessageProcessing || !gameObject.activeSelf) return;
+        _depthMsgCount++;
+        if (_depthMsgCount <= 3 || _depthMsgCount % 100 == 0)
+        {
+            Debug.Log($"[PointCloud] Depth msg #{_depthMsgCount}: {msg.width}x{msg.height}, encoding={msg.encoding}, data={msg.data.Length} bytes");
+        }
 
-        _depthMessageProcessing = true;
-        StartCoroutine(ProcessDepthImage(msg));
+        // Just store the latest message, drop older ones
+        _latestDepthMsg = msg;
     }
 
     private void ReceivedCameraInfo(CameraInfoMsg msg)
@@ -240,7 +263,7 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         _intrinsics.height = (int)msg.height;
         _intrinsics.isValid = true;
 
-        Debug.Log($"[PointCloud] Camera intrinsics: {_intrinsics.width}x{_intrinsics.height}, fx={_intrinsics.fx:F1}, fy={_intrinsics.fy:F1}");
+        Debug.Log($"[PointCloud] Camera intrinsics received: {_intrinsics.width}x{_intrinsics.height}, fx={_intrinsics.fx:F1}, fy={_intrinsics.fy:F1}, cx={_intrinsics.cx:F1}, cy={_intrinsics.cy:F1}");
     }
 
     private void ReceivedRGBImage(CompressedImageMsg msg)
@@ -251,51 +274,41 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     #endregion
 
-    #region Image Processing Coroutines
+    #region Depth Image Processing
 
-    private IEnumerator ProcessDepthImage(ImageMsg msg)
+    private void ProcessDepthImage(ImageMsg msg)
     {
-        yield return null;
+        int dsWidth = (int)msg.width / downsampleFactor;
+        int dsHeight = (int)msg.height / downsampleFactor;
 
-        // Create texture if needed
-        if (_depthTexture == null || _depthTexture.width != msg.width || _depthTexture.height != msg.height)
+        // Create texture if needed (compare against downsampled dimensions)
+        if (_depthTexture == null || _depthTexture.width != dsWidth || _depthTexture.height != dsHeight)
         {
-            int width = (int)msg.width / downsampleFactor;
-            int height = (int)msg.height / downsampleFactor;
-
-            _depthTexture = new Texture2D(width, height, TextureFormat.RFloat, false);
+            _depthTexture = new Texture2D(dsWidth, dsHeight, TextureFormat.RFloat, false);
             _depthTexture.filterMode = FilterMode.Point;
             _depthTexture.wrapMode = TextureWrapMode.Clamp;
 
-            _currentWidth = width;
-            _currentHeight = height;
-            _pointCount = width * height;
+            _currentWidth = dsWidth;
+            _currentHeight = dsHeight;
+            _pointCount = dsWidth * dsHeight;
 
-            Debug.Log($"[PointCloud] Depth texture: {width}x{height} ({_pointCount} points)");
+            Debug.Log($"[PointCloud] Depth texture created: {dsWidth}x{dsHeight} ({_pointCount} points) from source {msg.width}x{msg.height} (downsample={downsampleFactor})");
 
             ReleaseGPUResources();
         }
 
         if (msg.encoding == "32FC1")
         {
-            _depthTexture.LoadRawTextureData(msg.data);
-            _depthTexture.Apply();
+            ConvertFloat32Downsampled(msg.data, (int)msg.width, (int)msg.height, dsWidth, dsHeight);
         }
         else if (msg.encoding == "16UC1")
         {
-            ConvertUInt16ToFloat(msg.data, msg.width, msg.height);
+            ConvertUInt16ToFloat(msg.data, (int)msg.width, (int)msg.height, dsWidth, dsHeight);
         }
         else
         {
             Debug.LogWarning($"[PointCloud] Unsupported depth encoding: {msg.encoding}");
         }
-
-        yield return null;
-
-        _depthMessageReceived = true;
-        _depthMessageProcessing = false;
-
-        UpdateDepthDebugImage();
     }
 
     private IEnumerator ProcessRGBImage(byte[] imageData)
@@ -389,26 +402,9 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
             _visualEffect.SetGraphicsBuffer("ColorBuffer", _colorBuffer);
         }
 
-        // Reinit VFX after first buffer setup so particles read actual data
-        if (_needsVFXReinit)
-        {
-            _needsVFXReinit = false;
-            StartCoroutine(DelayedVFXReinit());
-        }
-    }
-
-    private IEnumerator DelayedVFXReinit()
-    {
-        yield return null;
-
-        if (_visualEffect != null)
-        {
-            _visualEffect.SetGraphicsBuffer("PositionBuffer", _positionBuffer);
-            _visualEffect.SetInt("ParticleCount", _pointCount);
-            _visualEffect.SetFloat("PointSize", pointSize);
-            _visualEffect.Reinit();
-            Debug.Log($"[PointCloud] VFX initialized with {_pointCount} points");
-        }
+        // Reinit VFX each frame to re-read updated positions from buffer
+        // Single Burst spawner only reads positions at spawn time
+        _visualEffect.Reinit();
     }
 
     private void ReleaseGPUResources()
@@ -424,15 +420,64 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     #region Utility Methods
 
-    private void ConvertUInt16ToFloat(byte[] data, uint width, uint height)
+    private float[] _floatBuffer;
+    private byte[] _byteBuffer;
+
+    private void ConvertUInt16ToFloat(byte[] data, int srcWidth, int srcHeight, int dstWidth, int dstHeight)
     {
-        int pixelCount = (int)(width * height);
+        int pixelCount = dstWidth * dstHeight;
+
+        // Reuse buffers to avoid GC allocations every frame
+        if (_floatBuffer == null || _floatBuffer.Length != pixelCount)
+        {
+            _floatBuffer = new float[pixelCount];
+            _byteBuffer = new byte[pixelCount * sizeof(float)];
+        }
+
+        int srcStride = srcWidth * 2; // bytes per source row
+        int dstIdx = 0;
+
+        for (int dy = 0; dy < dstHeight; dy++)
+        {
+            int srcRowOffset = dy * downsampleFactor * srcStride;
+            for (int dx = 0; dx < dstWidth; dx++)
+            {
+                int byteOffset = srcRowOffset + dx * downsampleFactor * 2;
+                // Inline uint16 read (little-endian) instead of BitConverter
+                ushort depthMM = (ushort)(data[byteOffset] | (data[byteOffset + 1] << 8));
+                _floatBuffer[dstIdx++] = depthMM * 0.001f;
+            }
+        }
+
+        Buffer.BlockCopy(_floatBuffer, 0, _byteBuffer, 0, _byteBuffer.Length);
+
+        _depthTexture.LoadRawTextureData(_byteBuffer);
+        _depthTexture.Apply();
+    }
+
+    private void ConvertFloat32Downsampled(byte[] data, int srcWidth, int srcHeight, int dstWidth, int dstHeight)
+    {
+        if (downsampleFactor == 1)
+        {
+            // No downsampling needed, load directly
+            _depthTexture.LoadRawTextureData(data);
+            _depthTexture.Apply();
+            return;
+        }
+
+        int pixelCount = dstWidth * dstHeight;
         float[] floatData = new float[pixelCount];
 
-        for (int i = 0; i < pixelCount; i++)
+        for (int dy = 0; dy < dstHeight; dy++)
         {
-            ushort depthMM = BitConverter.ToUInt16(data, i * 2);
-            floatData[i] = depthMM / 1000.0f;
+            for (int dx = 0; dx < dstWidth; dx++)
+            {
+                int srcX = dx * downsampleFactor;
+                int srcY = dy * downsampleFactor;
+                int srcIndex = srcY * srcWidth + srcX;
+
+                floatData[dy * dstWidth + dx] = BitConverter.ToSingle(data, srcIndex * 4);
+            }
         }
 
         byte[] byteData = new byte[pixelCount * sizeof(float)];
@@ -485,7 +530,6 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         }
 
         _depthTexture.Apply();
-        _depthMessageReceived = true;
 
         UpdateDepthDebugImage();
 
@@ -555,19 +599,19 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     private void OpenPointCloud()
     {
         isOpen = true;
-        gameObject.SetActive(true);
 
         if (_visualEffect != null)
         {
             _visualEffect.enabled = true;
         }
+
+        Debug.Log("[PointCloud] Opened. Waiting for depth data...");
     }
 
     private void ClosePointCloud()
     {
         isOpen = false;
-        gameObject.SetActive(false);
-
+        // Don't deactivate GameObject - ROS callbacks need it active
         if (_visualEffect != null)
         {
             _visualEffect.enabled = false;
