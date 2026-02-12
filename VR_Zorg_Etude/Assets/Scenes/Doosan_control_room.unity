@@ -11812,8 +11812,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86f0073ab07e85843bb93c1402f14c38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  depthTopicName: /masked_depth_image/image_raw
-  cameraInfoTopicName: /masked_depth_image/camera_info
+  depthTopicName: /depth_to_rgb/image_raw
+  cameraInfoTopicName: /depth_to_rgb/camera_info
   rgbTopicName: /rgb/image_raw/compressed
   computeShader: {fileID: 7200000, guid: 90ec454a0bf58bd4796b4286a579559d, type: 3}
   useMockIntrinsics: 0
@@ -11822,11 +11822,12 @@ MonoBehaviour:
   mockHeight: 1024
   isOpen: 1
   attachPoint: {fileID: 0}
-  pointSize: 0.01
+  pointSize: 0.0237
   depthScale: 1
   minDepth: 0.1
   maxDepth: 10
-  downsampleFactor: 2
+  downsampleFactor: 6
+  maxUpdatesPerSecond: 5
   enableRGBColors: 0
   depthDebugImage: {fileID: 0}
   showDepthDebug: 0
@@ -12533,8 +12534,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3dacd2050dac6e5429480fdffd5dced0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  topicName: /joint_states
+  topicName: /dsr01/joint_states
   joints: {fileID: 1378502025}
+  expectedJointNames:
+  - joint_1
+  - joint_2
+  - joint_3
+  - joint_4
+  - joint_5
+  - joint_6
+  logJointMapping: 0
+  logReceivedOrder: 1
 --- !u!1 &811271354
 GameObject:
   m_ObjectHideFlags: 0
@@ -20846,7 +20856,7 @@ PrefabInstance:
     - target: {fileID: 9054211477165063869, guid: 3362b7ddadb3c5143b0c0d5dc870961e,
         type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9054211477526455285, guid: 3362b7ddadb3c5143b0c0d5dc870961e,
         type: 3}
@@ -20888,6 +20898,7 @@ GameObject:
   - component: {fileID: 1304617145}
   - component: {fileID: 1304617144}
   - component: {fileID: 1304617148}
+  - component: {fileID: 1304617149}
   m_Layer: 0
   m_Name: Floor
   m_TagString: Untagged
@@ -20981,7 +20992,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1304617143}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6ff8c141078fcc047989a6de06ad07e6, type: 3}
   m_Name: 
@@ -21078,6 +21089,117 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_TeleportationProvider: {fileID: 0}
+  m_MatchOrientation: 0
+  m_MatchDirectionalInput: 0
+  m_TeleportTrigger: 0
+  m_FilterSelectionByHitNormal: 0
+  m_UpNormalToleranceDegrees: 30
+  m_Teleporting:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &1304617149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1304617143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38f6bf3d943ac7945842268c9ef1dca6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_InteractionManager: {fileID: 754684297}
+  m_Colliders: []
+  m_InteractionLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_InteractionLayers:
+    m_Bits: 2147483648
+  m_DistanceCalculationMode: 1
+  m_SelectMode: 1
+  m_FocusMode: 1
+  m_CustomReticle: {fileID: 0}
+  m_AllowGazeInteraction: 0
+  m_AllowGazeSelect: 0
+  m_OverrideGazeTimeToSelect: 0
+  m_GazeTimeToSelect: 0.5
+  m_OverrideTimeToAutoDeselectGaze: 0
+  m_TimeToAutoDeselectGaze: 3
+  m_AllowGazeAssistance: 0
+  m_FirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstFocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastFocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Activated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Deactivated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_StartingHoverFilters: []
+  m_StartingSelectFilters: []
+  m_StartingInteractionStrengthFilters: []
+  m_OnFirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnLastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnSelectCanceled:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnActivate:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnDeactivate:
+    m_PersistentCalls:
+      m_Calls: []
+  m_TeleportationProvider: {fileID: 1382841216}
   m_MatchOrientation: 0
   m_MatchDirectionalInput: 0
   m_TeleportTrigger: 0
@@ -22416,7 +22538,7 @@ MonoBehaviour:
   m_System: {fileID: 1382841217}
   m_TurnAmount: 45
   m_DebounceTime: 0.5
-  m_EnableTurnLeftRight: 1
+  m_EnableTurnLeftRight: 0
   m_EnableTurnAround: 0
   m_DelayTime: 0
   m_TurnUsage: 0
@@ -22451,7 +22573,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Timeout: 10
-  m_XROrigin: {fileID: 0}
+  m_XROrigin: {fileID: 1984072764}
 --- !u!1 &1382882941
 GameObject:
   m_ObjectHideFlags: 0
@@ -32058,6 +32180,7 @@ GameObject:
   - component: {fileID: 1984072766}
   - component: {fileID: 1984072767}
   - component: {fileID: 1984072768}
+  - component: {fileID: 1984072769}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -32147,6 +32270,19 @@ MonoBehaviour:
   autoDetectVR: 1
   robotTarget: {fileID: 986516485159089589}
   targetMoveSpeed: 0.1
+--- !u!114 &1984072769
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1984072763}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1a3854cadd9586468702c824d383e70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoFixOnStart: 1
 --- !u!1 &1990161385
 GameObject:
   m_ObjectHideFlags: 0

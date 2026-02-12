@@ -1,10 +1,14 @@
 using System;
 using System.Collections;
+using System.Diagnostics;
+using Unity.Collections;
 using RosMessageTypes.Sensor;
 using Unity.Robotics.ROSTCPConnector;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.UI;
 using UnityEngine.VFX;
+using Debug = UnityEngine.Debug;
 
 /// <summary>
 /// Subscribe to depth image and camera info from ROS, convert to 3D point cloud using GPU compute shader,
@@ -95,8 +99,8 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     [Tooltip("Downsampling factor (1=full res, 2=half res, 4=quarter res)")]
     [SerializeField, Range(1, 8)] private int downsampleFactor = 4;
 
-    [Tooltip("Max point cloud updates per second (Reinit is expensive)")]
-    [SerializeField, Range(1, 30)] private int maxUpdatesPerSecond = 5;
+    [Tooltip("Max point cloud updates per second")]
+    [SerializeField, Range(1, 30)] private int maxUpdatesPerSecond = 15;
 
     [Tooltip("Enable RGB color support (requires RGB topic)")]
     [SerializeField] private bool enableRGBColors = false;
@@ -120,6 +124,14 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     private int _pointCount;
     private int _currentWidth;
     private int _currentHeight;
+
+    // Reinit tracking - only Reinit when particle count changes
+    private bool _needsReinit = true;
+    private int _lastVFXPointCount = -1;
+
+    // Profiling
+    private readonly Stopwatch _sw = new Stopwatch();
+    private int _gcCountPrev;
 
     #endregion
 
@@ -193,31 +205,51 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         // Check if we have new depth data
         if (_latestDepthMsg == null) return;
 
-        // Throttle update rate to avoid costly Reinit every frame
+        // Throttle update rate
         if (Time.time - _lastUpdateTime < 1f / maxUpdatesPerSecond) return;
         _lastUpdateTime = Time.time;
+
+        // Track GC collections this frame
+        int gcNow = GC.CollectionCount(0);
+        int gcDelta = gcNow - _gcCountPrev;
+        _gcCountPrev = gcNow;
 
         // Grab latest message and clear it so we don't reprocess
         var msg = _latestDepthMsg;
         _latestDepthMsg = null;
+        _depthMsgProcessed++;
 
-        // Process depth image directly (no coroutine)
+        _sw.Restart();
+
+        // Step 1: Process depth image (CPU conversion + texture upload)
+        Profiler.BeginSample("PointCloud.ProcessDepth");
         ProcessDepthImage(msg);
+        Profiler.EndSample();
+        long t1 = _sw.ElapsedMilliseconds;
 
-        // Initialize GPU resources if needed
+        // Step 2: Initialize GPU resources if needed
+        Profiler.BeginSample("PointCloud.InitGPU");
         if (_positionBuffer == null)
         {
             InitializeGPUResources();
         }
+        Profiler.EndSample();
+        long t2 = _sw.ElapsedMilliseconds;
 
-        // Dispatch compute shader to generate point cloud
+        // Step 3: Dispatch compute shader
+        Profiler.BeginSample("PointCloud.ComputeDispatch");
         DispatchPointCloudGeneration();
+        Profiler.EndSample();
+        long t3 = _sw.ElapsedMilliseconds;
 
-        // Update VFX Graph and Reinit to refresh particle positions
+        // Step 4: Update VFX Graph
+        Profiler.BeginSample("PointCloud.UpdateVFX");
         UpdateVFXGraph();
+        Profiler.EndSample();
+        long t4 = _sw.ElapsedMilliseconds;
 
-        // Update debug image
-        UpdateDepthDebugImage();
+        // Log timing (every update)
+        Debug.Log($"[PointCloud PERF] Process={t1}ms InitGPU={t2-t1}ms Compute={t3-t2}ms VFX={t4-t3}ms TOTAL={t4}ms | GC={gcDelta} | msg.data={msg.data.Length/1024}KB ds={downsampleFactor} pts={_pointCount}");
 
         // Update transform
         if (attachPoint != null)
@@ -230,6 +262,7 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     private void OnDestroy()
     {
         ReleaseGPUResources();
+        if (_debugTexture != null) Destroy(_debugTexture);
     }
 
     #endregion
@@ -237,13 +270,22 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
     #region ROS Message Handlers
 
     private int _depthMsgCount = 0;
+    private int _depthMsgProcessed = 0;
+    private float _lastMsgRateLog = 0;
 
     private void ReceivedDepthImage(ImageMsg msg)
     {
         _depthMsgCount++;
-        if (_depthMsgCount <= 3 || _depthMsgCount % 100 == 0)
+        if (_depthMsgCount <= 3)
         {
             Debug.Log($"[PointCloud] Depth msg #{_depthMsgCount}: {msg.width}x{msg.height}, encoding={msg.encoding}, data={msg.data.Length} bytes");
+        }
+
+        // Log receive rate every 5 seconds
+        if (Time.time - _lastMsgRateLog >= 5f)
+        {
+            Debug.Log($"[PointCloud RATE] Received={_depthMsgCount} Processed={_depthMsgProcessed} in {Time.time:F0}s ({_depthMsgCount / Mathf.Max(1, Time.time):F1} msg/sec, {_depthMsgCount * msg.data.Length / 1024 / 1024 / Mathf.Max(1, Time.time):F0} MB/sec alloc)");
+            _lastMsgRateLog = Time.time;
         }
 
         // Just store the latest message, drop older ones
@@ -353,6 +395,7 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
             );
         }
 
+        _needsReinit = true;
         Debug.Log($"[PointCloud] GPU buffers created: {_pointCount} points ({_pointCount * 12 / 1024 / 1024}MB)");
     }
 
@@ -402,9 +445,15 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
             _visualEffect.SetGraphicsBuffer("ColorBuffer", _colorBuffer);
         }
 
-        // Reinit VFX each frame to re-read updated positions from buffer
-        // Single Burst spawner only reads positions at spawn time
-        _visualEffect.Reinit();
+        // Only Reinit when needed (particle count changed or first setup)
+        // With Set Position in Update context, positions are read every frame from the buffer
+        if (_needsReinit || _lastVFXPointCount != _pointCount)
+        {
+            _visualEffect.Reinit();
+            _lastVFXPointCount = _pointCount;
+            _needsReinit = false;
+            Debug.Log($"[PointCloud] VFX Reinit: {_pointCount} particles");
+        }
     }
 
     private void ReleaseGPUResources()
@@ -452,7 +501,7 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         Buffer.BlockCopy(_floatBuffer, 0, _byteBuffer, 0, _byteBuffer.Length);
 
         _depthTexture.LoadRawTextureData(_byteBuffer);
-        _depthTexture.Apply();
+        _depthTexture.Apply(false);
     }
 
     private void ConvertFloat32Downsampled(byte[] data, int srcWidth, int srcHeight, int dstWidth, int dstHeight)
@@ -461,30 +510,34 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
         {
             // No downsampling needed, load directly
             _depthTexture.LoadRawTextureData(data);
-            _depthTexture.Apply();
+            _depthTexture.Apply(false);
             return;
         }
 
         int pixelCount = dstWidth * dstHeight;
-        float[] floatData = new float[pixelCount];
 
+        // Reuse buffers to avoid GC allocations every frame
+        if (_floatBuffer == null || _floatBuffer.Length != pixelCount)
+        {
+            _floatBuffer = new float[pixelCount];
+            _byteBuffer = new byte[pixelCount * sizeof(float)];
+        }
+
+        int dstIdx = 0;
         for (int dy = 0; dy < dstHeight; dy++)
         {
+            int srcRowOffset = dy * downsampleFactor * srcWidth;
             for (int dx = 0; dx < dstWidth; dx++)
             {
-                int srcX = dx * downsampleFactor;
-                int srcY = dy * downsampleFactor;
-                int srcIndex = srcY * srcWidth + srcX;
-
-                floatData[dy * dstWidth + dx] = BitConverter.ToSingle(data, srcIndex * 4);
+                int srcIndex = srcRowOffset + dx * downsampleFactor;
+                _floatBuffer[dstIdx++] = BitConverter.ToSingle(data, srcIndex * 4);
             }
         }
 
-        byte[] byteData = new byte[pixelCount * sizeof(float)];
-        Buffer.BlockCopy(floatData, 0, byteData, 0, byteData.Length);
+        Buffer.BlockCopy(_floatBuffer, 0, _byteBuffer, 0, _byteBuffer.Length);
 
-        _depthTexture.LoadRawTextureData(byteData);
-        _depthTexture.Apply();
+        _depthTexture.LoadRawTextureData(_byteBuffer);
+        _depthTexture.Apply(false);
     }
 
     private void InitializeMockIntrinsics()
@@ -542,53 +595,55 @@ public class RosSubDepthImageToPointCloud : MonoBehaviour
 
     #region Debug Visualization
 
-    private void UpdateDepthDebugImage()
+    private Texture2D _debugTexture;
+
+    [ContextMenu("Update Debug Image")]
+    public void UpdateDepthDebugImage()
     {
-        if (!showDepthDebug || depthDebugImage == null || _depthTexture == null)
+        if (depthDebugImage == null || _depthTexture == null)
             return;
 
         int w = _depthTexture.width;
         int h = _depthTexture.height;
 
-        Texture2D debugTex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        // Reuse debug texture (avoid GPU memory leak)
+        if (_debugTexture == null || _debugTexture.width != w || _debugTexture.height != h)
+        {
+            if (_debugTexture != null) Destroy(_debugTexture);
+            _debugTexture = new Texture2D(w, h, TextureFormat.R8, false);
+            _debugTexture.filterMode = FilterMode.Point;
+        }
 
+        // Read depth data via NativeArray (zero-copy, no GetPixel)
+        NativeArray<float> depthData = _depthTexture.GetRawTextureData<float>();
+        NativeArray<byte> debugData = _debugTexture.GetRawTextureData<byte>();
+
+        // Find min/max in single pass
         float minVal = float.MaxValue;
         float maxVal = float.MinValue;
-        for (int y = 0; y < h; y++)
+        for (int i = 0; i < depthData.Length; i++)
         {
-            for (int x = 0; x < w; x++)
+            float d = depthData[i];
+            if (d > 0)
             {
-                float d = _depthTexture.GetPixel(x, y).r;
-                if (d > 0)
-                {
-                    minVal = Mathf.Min(minVal, d);
-                    maxVal = Mathf.Max(maxVal, d);
-                }
+                if (d < minVal) minVal = d;
+                if (d > maxVal) maxVal = d;
             }
         }
 
         float range = maxVal - minVal;
         if (range < 0.001f) range = 1f;
+        float invRange = 1f / range;
 
-        for (int y = 0; y < h; y++)
+        // Normalize to grayscale R8
+        for (int i = 0; i < depthData.Length; i++)
         {
-            for (int x = 0; x < w; x++)
-            {
-                float d = _depthTexture.GetPixel(x, y).r;
-                if (d <= 0)
-                {
-                    debugTex.SetPixel(x, y, Color.black);
-                }
-                else
-                {
-                    float normalized = (d - minVal) / range;
-                    debugTex.SetPixel(x, y, new Color(normalized, normalized, normalized, 1f));
-                }
-            }
+            float d = depthData[i];
+            debugData[i] = d <= 0 ? (byte)0 : (byte)((d - minVal) * invRange * 255f);
         }
 
-        debugTex.Apply();
-        depthDebugImage.texture = debugTex;
+        _debugTexture.Apply();
+        depthDebugImage.texture = _debugTexture;
         depthDebugImage.gameObject.SetActive(true);
     }
 
